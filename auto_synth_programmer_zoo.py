@@ -34,7 +34,9 @@ if extractor.need_to_fit_normalisers():
     extractor.fit_normalisers(2000000)
 
 # Get training and testing batch.
-train_batch_x, train_batch_y, test_batch_x, test_batch_y = get_batches(1, 1, extractor)
+test_batch_size = 100
+train_batch_size = 1000
+train_batch_x, train_batch_y, test_batch_x, test_batch_y = get_batches(train_batch_size, test_batch_size, extractor)
 
 # Load models.
 features_cols = train_batch_x[0].shape[0]
@@ -46,32 +48,39 @@ prob_keep_input = tf.placeholder(tf.float32)
 prob_keep_hidden = tf.placeholder(tf.float32)
 batch_size = tf.placeholder(tf.int32)
 
-model = GeneticAlgorithm(extractor=extractor, population_size=400,
-                         percent_elitism_elites=5, percent_elitist_parents=5,
-                         dna_length=(parameter_size), target_features=test_batch_x,
-                         feature_size=(features_cols * features_rows))
+lstm = LSTM(features=features, labels=patches, batch_size=batch_size)
 
-# sess = tf.Session()
-# sess.run(tf.global_variables_initializer())
+ga = GeneticAlgorithm(extractor=extractor, population_size=600,
+                      percent_elitism_elites=5, percent_elitist_parents=5,
+                      dna_length=(parameter_size), target_features=test_batch_x,
+                      feature_size=(features_cols * features_rows))
+
+sess = tf.Session()
+sess.run(tf.global_variables_initializer())
 
 errors = []
-for _ in trange(5, desc="Optimising model(s)"):
-    model.optimise()
-    prediction = model.prediction()
+for _ in trange(500, desc="Optimising model(s)"):
+
+    print "LSTM..."
+    prediction = sess.run(lstm.prediction, { features: test_batch_x,
+                                             patches: test_batch_y,
+                                             batch_size: test_batch_size })
+    error = sess.run(lstm.error, { features: test_batch_x,
+                                   patches: test_batch_y,
+                                   batch_size: test_batch_size })
+    print "error: " + str(error)
+    stats = get_stats(extractor, prediction, test_batch_x, test_batch_y)
+
+
+    for _ in range(1):
+        sess.run(lstm.optimise, { features: train_batch_x,
+                                  patches: train_batch_y,
+                                  batch_size: train_batch_size })
+    print "GA..."
+    ga.optimise()
+    prediction = ga.prediction()
     stats = get_stats(extractor, prediction, test_batch_x, test_batch_y)
     errors += [stats[0]]
 
-write_wavs(stats[1]['predicted_patch'], stats[1]['actual_patch'], extractor)
 display_stats(stats)
 plot_error(errors)
-
-
-    # error = sess.run(model.error, { features: test_batch_x,
-    #                                 patches: test_batch_y,
-    #                                 batch_size: test_batch_size })
-    # print "error: " + str(error)
-    #
-    # for _ in range(1):
-    #     sess.run(model.optimise, { features: train_batch_x,
-    #                                patches: train_batch_y,
-    #                                batch_size: train_batch_size })

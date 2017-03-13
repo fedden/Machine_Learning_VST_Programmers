@@ -114,16 +114,16 @@ class PluginFeatureExtractor:
 
     def get_random_example(self):
         if self.loaded_plugin:
-            random_patch_list_tuples = self.generator.get_random_patch()
-            random_patch = np.array([p[1] for p in random_patch_list_tuples])
-            self.set_patch(random_patch_list_tuples)
-            int_audio_frames = self.float_to_int_audio(np.array(self.get_audio_frames()))
-            feature_vector = self.get_desired_features(int_audio_frames)
-            contains_nan = np.isnan(feature_vector).any()
-            if contains_nan:
-                return (np.zeros_like(feature_vector.T), random_patch)
-
-            return (feature_vector.T, random_patch)
+            while True:
+                random_patch_list_tuples = self.generator.get_random_patch()
+                random_patch = np.array([p[1] for p in random_patch_list_tuples])
+                self.set_patch(random_patch_list_tuples)
+                int_audio_frames = self.float_to_int_audio(np.array(self.get_audio_frames()))
+                feature_vector = self.get_desired_features(int_audio_frames)
+                if np.isnan(feature_vector).any():
+                    continue
+                else:
+                    return (feature_vector.T, random_patch)
         else:
             print "Please load plugin first."
 
